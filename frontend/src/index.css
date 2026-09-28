@@ -50,8 +50,58 @@
   @apply text-2xl font-extrabold text-gray-900 mb-4;
 }
 
+/* Primary button — Add to Cart */
+.btn-primary {
+  @apply py-3 px-4 bg-black text-white rounded-xl font-medium transition-all hover:bg-gray-800 hover:shadow-lg active:scale-95 flex justify-center items-center text-sm;
+}
+
+/* Secondary button — View Details */
+.btn-secondary {
+  @apply py-3 px-4 border border-gray-200 text-gray-700 bg-white rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 active:scale-95 flex justify-center items-center text-sm;
+}
+
 .view-details-btn {
-  @apply mt-auto w-full py-3 px-4 bg-black text-white rounded-xl font-medium transition-all hover:bg-gray-800 hover:shadow-lg active:scale-95 flex justify-center items-center;
+  @apply mt-auto w-full;
+}
+
+.cart-btn {
+  @apply w-full;
+}
+
+.cart-btn-in-cart {
+  @apply bg-gray-700 hover:bg-gray-600;
+}
+
+/* ── Cart Page ─────────────────────────────────────────────── */
+
+.cart-item {
+  @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex gap-5 transition-all hover:shadow-md;
+}
+
+.cart-item-image {
+  @apply w-24 h-24 flex-shrink-0 bg-gray-50 rounded-xl overflow-hidden border border-gray-100;
+}
+
+.cart-item-details {
+  @apply flex-1 min-w-0 flex flex-col;
+}
+
+/* Quantity control — [-] 2 [+] */
+.quantity-control {
+  @apply flex items-center border border-gray-200 rounded-xl overflow-hidden;
+}
+
+.quantity-btn {
+  @apply w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:bg-gray-200;
+}
+
+.quantity-value {
+  @apply w-10 text-center font-bold text-gray-900 text-sm border-x border-gray-200 h-9 flex items-center justify-center;
+}
+
+/* Remove button */
+.remove-btn {
+  @apply flex items-center text-sm font-medium text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-red-50;
 }
 
 /* Custom Scrollbar for premium feel */

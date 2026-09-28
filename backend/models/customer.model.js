@@ -21,7 +21,29 @@ const customerSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: true
-    }
+    },
+    // Lab-04: Wishlist — stores Product ObjectId references
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product'
+      }
+    ],
+    // Lab-05: Cart — stores Product reference + quantity
+    cart: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Product',
+          required: true
+        },
+        quantity: {
+          type: Number,
+          default: 1,
+          min: 1
+        }
+      }
+    ]
   },
   {
     timestamps: true

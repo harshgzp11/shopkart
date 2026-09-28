@@ -36,8 +36,14 @@ const ProductCard = ({ product }) => {
   const handleAddToWishlist = async () => {
     setWishlistLoading(true);
     try {
-      await addToWishlist(product._id);
-      setWishlistStatus('added');
+      const { toggleWishlist } = await import('../services/api');
+      const res = await toggleWishlist(product._id);
+      if (res.saved) {
+        setWishlistStatus('added');
+      } else {
+        setWishlistStatus('idle');
+      }
+      window.dispatchEvent(new Event('wishlistUpdated'));
     } catch (err) {
       if (err?.response?.status === 409) {
         // Already in wishlist — treat as success
@@ -61,14 +67,14 @@ const ProductCard = ({ product }) => {
         <button
           id={`wishlist-btn-${product._id}`}
           onClick={handleAddToWishlist}
-          disabled={wishlistLoading || wishlistStatus === 'added'}
+          disabled={wishlistLoading}
           className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-md border transition-all duration-200
             ${wishlistStatus === 'added'
               ? 'bg-rose-500 border-rose-500 text-white scale-110'
               : 'bg-white/90 border-gray-200 text-gray-500 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-300'
             }
           `}
-          title={wishlistStatus === 'added' ? 'In Wishlist' : 'Add to Wishlist'}
+          title={wishlistStatus === 'added' ? 'Remove from Wishlist' : 'Add to Wishlist'}
         >
           <Heart
             className={`h-4 w-4 transition-transform ${

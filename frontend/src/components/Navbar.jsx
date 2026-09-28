@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { LogOut, ShoppingCart, Heart } from 'lucide-react';
@@ -7,6 +8,29 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { totalItems } = useCart();
+  const [wishlistCount, setWishlistCount] = useState(0);
+
+  useEffect(() => {
+    const fetchWishlistCount = async () => {
+      try {
+        const res = await api.get('/wishlist');
+        if (res.data.success) {
+          setWishlistCount(res.data.count);
+        }
+      } catch (err) {
+        console.error('Failed to fetch wishlist count:', err);
+      }
+    };
+
+    fetchWishlistCount();
+
+    const handleWishlistUpdated = () => {
+      fetchWishlistCount();
+    };
+
+    window.addEventListener('wishlistUpdated', handleWishlistUpdated);
+    return () => window.removeEventListener('wishlistUpdated', handleWishlistUpdated);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -55,7 +79,7 @@ export default function Navbar() {
               </button>
               <button onClick={() => navigate('/wishlist')} className={`${navLinkClass('/wishlist')} flex items-center gap-1`}>
                 <Heart className="h-3.5 w-3.5" />
-                Wishlist
+                Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
               </button>
             </div>
           </div>

@@ -32,6 +32,11 @@ export const removeFromWishlist = async (productId) => {
   return response.data;
 };
 
+export const toggleWishlist = async (productId) => {
+  const response = await api.patch(`/wishlist/${productId}/toggle`);
+  return response.data;
+};
+
 // ── Cart ──────────────────────────────────────────────────────
 export const addToCart = async (productId) => {
   const response = await api.post(`/cart/${productId}`);

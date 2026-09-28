@@ -36,6 +36,7 @@ export default function Wishlist() {
     try {
       await removeFromWishlist(productId);
       setWishlist((prev) => prev.filter((p) => p._id !== productId));
+      window.dispatchEvent(new Event('wishlistUpdated'));
     } catch (err) {
       console.error('Failed to remove from wishlist:', err);
     } finally {

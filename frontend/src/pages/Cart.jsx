@@ -125,16 +125,12 @@ export default function Cart() {
 
                 <button
                   id="checkout-btn"
-                  disabled
-                  className="mt-6 w-full py-4 bg-black text-white rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-                  title="Coming in Lab-06"
+                  onClick={() => navigate('/checkout')}
+                  className="mt-6 w-full py-4 bg-black text-white rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 hover:shadow-lg"
                 >
                   Proceed to Checkout
                   <ArrowRight className="h-5 w-5" />
                 </button>
-                <p className="text-xs text-center text-gray-400 mt-2">
-                  Checkout coming in Lab-06 🚀
-                </p>
 
                 <button
                   onClick={() => navigate('/products')}

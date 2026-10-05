@@ -81,6 +81,9 @@ export default function Navbar() {
                 <Heart className="h-3.5 w-3.5" />
                 Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
               </button>
+              <button onClick={() => navigate('/orders')} className={navLinkClass('/orders')}>
+                My Orders
+              </button>
             </div>
           </div>
 

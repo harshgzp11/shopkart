@@ -58,4 +58,31 @@ export const removeFromCart = async (productId) => {
   return response.data;
 };
 
+// ── Orders & Payments ─────────────────────────────────────────
+export const createPaymentOrder = async (shippingAddress) => {
+  const response = await api.post('/orders/create-payment-order', { shippingAddress });
+  return response.data;
+};
+
+export const verifyPayment = async (paymentData) => {
+  const response = await api.post('/orders/verify-payment', paymentData);
+  return response.data;
+};
+
+export const getOrders = async () => {
+  const response = await api.get('/orders');
+  return response.data;
+};
+
+export const getOrderById = async (orderId) => {
+  const response = await api.get(`/orders/${orderId}`);
+  return response.data;
+};
+
+export const updateOrderStatus = async (orderId, status) => {
+  const response = await api.patch(`/orders/${orderId}/status`, { status });
+  return response.data;
+};
+
 export default api;
+

@@ -63,6 +63,11 @@ export function CartProvider({ children }) {
     return data;
   };
 
+  // Clear cart after verified checkout
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -75,6 +80,7 @@ export function CartProvider({ children }) {
         addToCart,
         updateQuantity,
         removeFromCart,
+        clearCart,
       }}
     >
       {children}

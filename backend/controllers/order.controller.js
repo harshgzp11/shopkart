@@ -176,6 +176,163 @@ const createPaymentOrder = async (req, res) => {
   }
 };
 
+const resumePayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid order ID' });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Access to another user order is denied' });
+    }
+
+    if (
+      order.paymentStatus !== 'PENDING' ||
+      order.status !== 'PENDING_PAYMENT' ||
+      !order.razorpayOrderId
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: 'This order is not available for payment.'
+      });
+    }
+
+    let razorpayConfig;
+    try {
+      razorpayConfig = getRazorpayConfig();
+    } catch (error) {
+      if (error.code === 'RAZORPAY_NOT_CONFIGURED') {
+        return res.status(503).json({
+          success: false,
+          message: 'Payment gateway is not configured. Set Razorpay credentials on the server.'
+        });
+      }
+      throw error;
+    }
+
+    const gatewayOrder = await razorpayConfig.client.orders.fetch(order.razorpayOrderId);
+    if (
+      !['created', 'attempted'].includes(gatewayOrder.status) ||
+      gatewayOrder.amount_due !== Math.round(order.totalAmount * 100)
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: 'This payment can no longer be resumed. Refresh your orders or contact support.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      razorpayOrderId: order.razorpayOrderId,
+      amount: gatewayOrder.amount_due,
+      currency: gatewayOrder.currency,
+      key: razorpayConfig.keyId
+    });
+  } catch (error) {
+    console.error('Error resuming payment:', error);
+    return res.status(500).json({ success: false, message: 'Unable to resume payment right now.' });
+  }
+};
+
+const cancelPendingOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid order ID' });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Access to another user order is denied' });
+    }
+
+    if (order.paymentStatus !== 'PENDING' || order.status !== 'PENDING_PAYMENT') {
+      return res.status(409).json({
+        success: false,
+        message: 'Only orders with pending payment can be cancelled.'
+      });
+    }
+
+    if (order.razorpayOrderId) {
+      let razorpayConfig;
+      try {
+        razorpayConfig = getRazorpayConfig();
+      } catch (error) {
+        if (error.code === 'RAZORPAY_NOT_CONFIGURED') {
+          return res.status(503).json({
+            success: false,
+            message: 'Payment gateway is not configured, so payment status cannot be checked.'
+          });
+        }
+        throw error;
+      }
+
+      let payments;
+      try {
+        payments = await razorpayConfig.client.orders.fetchPayments(order.razorpayOrderId);
+      } catch (error) {
+        console.error('Unable to check Razorpay payment status before cancellation:', error);
+        return res.status(502).json({
+          success: false,
+          message: 'Unable to confirm payment status with the payment gateway. The order was not cancelled.'
+        });
+      }
+      const paymentInProgressOrComplete = (payments.items || []).some(
+        (payment) => payment.status === 'authorized' || payment.status === 'captured'
+      );
+
+      if (paymentInProgressOrComplete) {
+        return res.status(409).json({
+          success: false,
+          message: 'A payment is processing or has completed. Refresh your orders before trying again.'
+        });
+      }
+    }
+
+    const cancelledOrder = await Order.findOneAndUpdate(
+      {
+        _id: id,
+        user: req.user._id,
+        paymentStatus: 'PENDING',
+        status: 'PENDING_PAYMENT'
+      },
+      { $set: { status: 'CANCELLED' } },
+      { new: true, runValidators: true }
+    );
+
+    if (!cancelledOrder) {
+      return res.status(409).json({
+        success: false,
+        message: 'The order changed while cancellation was processing. Refresh your orders and try again.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Order cancelled.',
+      order: cancelledOrder
+    });
+  } catch (error) {
+    console.error('Error cancelling pending order:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to cancel this order right now.'
+    });
+  }
+};
+
 /**
  * POST /orders/verify-payment
  * 1. Authenticate user
@@ -214,11 +371,11 @@ const verifyPayment = async (req, res) => {
 
     if (
       order.paymentStatus !== 'PENDING' ||
-      order.status !== 'PENDING_PAYMENT' ||
+      !['PENDING_PAYMENT', 'CANCELLED'].includes(order.status) ||
       !order.razorpayOrderId ||
       razorpay_order_id !== order.razorpayOrderId
     ) {
-      return res.status(409).json({ success: false, message: 'Payment order is not pending or does not match' });
+      return res.status(409).json({ success: false, message: 'Payment order is not payable or does not match' });
     }
 
     let razorpayConfig;
@@ -253,14 +410,33 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // Successful payment
-    order.paymentStatus = 'PAID';
-    order.status = 'PLACED';
-    order.razorpayPaymentId = razorpay_payment_id;
-    await order.save();
+    // A verified payment wins if it completes at the same time as cancellation.
+    const paidOrder = await Order.findOneAndUpdate(
+      {
+        _id: order._id,
+        paymentStatus: 'PENDING',
+        status: { $in: ['PENDING_PAYMENT', 'CANCELLED'] },
+        razorpayOrderId: order.razorpayOrderId
+      },
+      {
+        $set: {
+          paymentStatus: 'PAID',
+          status: 'PLACED',
+          razorpayPaymentId: razorpay_payment_id
+        }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!paidOrder) {
+      return res.status(409).json({
+        success: false,
+        message: 'The order changed while payment verification was processing. Refresh your orders.'
+      });
+    }
 
     // Deduct stock for purchased items
-    for (const item of order.items) {
+    for (const item of paidOrder.items) {
       await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: -item.quantity }
       });
@@ -276,7 +452,7 @@ const verifyPayment = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Payment verified successfully and order placed',
-      order
+      order: paidOrder
     });
   } catch (error) {
     console.error('Error in verifyPayment:', error);
@@ -406,6 +582,8 @@ const updateOrderStatus = async (req, res) => {
 
 module.exports = {
   createPaymentOrder,
+  resumePayment,
+  cancelPendingOrder,
   verifyPayment,
   getMyOrders,
   getAllOrders,

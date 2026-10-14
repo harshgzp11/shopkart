@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { getOrderById } from '../services/api';
+import { getOrderById, resumePayment, verifyPayment } from '../services/api';
+import { useCart } from '../context/useCart';
 import {
   AlertCircle,
   CheckCircle,
@@ -9,17 +10,34 @@ import {
   ArrowRight,
   ShoppingBag,
   MapPin,
-  CreditCard
+  CreditCard,
+  Loader2
 } from 'lucide-react';
+
+const loadRazorpayScript = () => new Promise((resolve) => {
+  if (window.Razorpay) {
+    resolve(true);
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+  script.onload = () => resolve(true);
+  script.onerror = () => resolve(false);
+  document.body.appendChild(script);
+});
 
 export default function OrderSuccess() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { clearCart } = useCart();
 
   const [order, setOrder] = useState(location.state?.order || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [paymentError, setPaymentError] = useState('');
+  const [resumingPayment, setResumingPayment] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -91,16 +109,90 @@ export default function OrderSuccess() {
   });
   const isPaid = order.paymentStatus === 'PAID';
   const paymentFailed = order.paymentStatus === 'FAILED';
+  const isCancelled = order.status === 'CANCELLED';
+  const amountLabel = isPaid ? 'Total Paid' : isCancelled ? 'Order Total' : 'Amount Due';
   const bannerTitle = isPaid
     ? 'Order Placed Successfully!'
-    : paymentFailed
-      ? 'Payment Failed'
-      : 'Payment Pending';
+    : isCancelled
+      ? 'Order Cancelled'
+      : paymentFailed
+        ? 'Payment Failed'
+        : 'Payment Pending';
   const bannerMessage = isPaid
     ? 'Thank you for shopping with ShopKart. Your order is confirmed.'
-    : paymentFailed
-      ? 'Your payment was not completed, so this order was not placed. Your cart is still available.'
-      : 'Payment has not been confirmed. This order is not placed until payment succeeds.';
+    : isCancelled
+      ? 'This order was cancelled. If you completed a payment, refresh your orders or contact support.'
+      : paymentFailed
+        ? 'Your payment was not completed, so this order was not placed. Your cart is still available.'
+        : 'Payment has not been confirmed. This order is not placed until payment succeeds.';
+
+  const continuePayment = async () => {
+    setResumingPayment(true);
+    setPaymentError('');
+
+    try {
+      const checkout = await resumePayment(order._id);
+      if (!checkout.success) {
+        throw new Error(checkout.message || 'Unable to resume payment.');
+      }
+
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error('Could not load Razorpay Checkout. Check your internet connection and try again.');
+      }
+
+      const razorpay = new window.Razorpay({
+        key: checkout.key,
+        amount: checkout.amount,
+        currency: checkout.currency,
+        name: 'ShopKart',
+        description: `ShopKart Order #${order._id.slice(-6)}`,
+        order_id: checkout.razorpayOrderId,
+        handler: async (response) => {
+          try {
+            const result = await verifyPayment({
+              shopKartOrderId: order._id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            });
+            if (!result.success) {
+              throw new Error(result.message || 'Payment verification failed.');
+            }
+
+            setOrder(result.order);
+            clearCart();
+            setPaymentError('');
+          } catch (err) {
+            console.error('Payment verification failed:', err);
+            setPaymentError(
+              err.response?.data?.message || err.message || 'Payment verification failed. Contact support if you were charged.'
+            );
+          } finally {
+            setResumingPayment(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setResumingPayment(false)
+        },
+        theme: { color: '#111827' }
+      });
+
+      razorpay.on('payment.failed', (response) => {
+        setPaymentError(response.error?.description || 'Payment failed. You can try again.');
+        setResumingPayment(false);
+      });
+      razorpay.open();
+    } catch (err) {
+      console.error('Unable to resume payment:', err);
+      setPaymentError(
+        err.response?.status === 404
+          ? 'Payment recovery is not available on the connected server yet. Restart the backend locally or deploy the latest backend code, then try again.'
+          : err.response?.data?.message || err.message || 'Unable to resume payment.'
+      );
+      setResumingPayment(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -109,7 +201,7 @@ export default function OrderSuccess() {
       <main className="flex-grow max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           {/* Header Banner */}
-          <div className={`${isPaid ? 'bg-emerald-500' : paymentFailed ? 'bg-red-600' : 'bg-amber-500'} px-6 py-8 text-center text-white`}>
+          <div className={`${isPaid ? 'bg-emerald-500' : isCancelled ? 'bg-gray-600' : 'bg-red-600'} px-6 py-8 text-center text-white`}>
             <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
               {isPaid ? (
                 <CheckCircle className="w-10 h-10 text-white" />
@@ -143,8 +235,10 @@ export default function OrderSuccess() {
                 <p className="text-gray-400 text-xs uppercase font-medium">Status</p>
                 <span className={`inline-block mt-0.5 px-2 py-0.5 text-xs font-bold rounded-full ${
                   order.status === 'PENDING_PAYMENT'
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-emerald-100 text-emerald-800'
+                    ? 'bg-red-100 text-red-800'
+                    : order.status === 'CANCELLED'
+                      ? 'bg-gray-100 text-gray-700'
+                      : 'bg-emerald-100 text-emerald-800'
                 }`}>
                   {order.status}
                 </span>
@@ -156,7 +250,7 @@ export default function OrderSuccess() {
                     ? 'bg-emerald-100 text-emerald-800'
                     : order.paymentStatus === 'FAILED'
                       ? 'bg-red-100 text-red-800'
-                      : 'bg-amber-100 text-amber-800'
+                      : 'bg-red-100 text-red-800'
                 }`}>
                   {order.paymentStatus}
                 </span>
@@ -226,7 +320,7 @@ export default function OrderSuccess() {
                   )}
                 </div>
                 <div className="pt-3 border-t border-gray-100 mt-2 flex justify-between items-baseline">
-                  <span className="text-xs text-gray-500">{isPaid ? 'Total Paid' : 'Amount Due'}</span>
+                  <span className="text-xs text-gray-500">{amountLabel}</span>
                   <span className="text-lg font-bold text-gray-900">
                     ₹{order.totalAmount.toLocaleString('en-IN')}
                   </span>
@@ -234,15 +328,32 @@ export default function OrderSuccess() {
               </div>
             </div>
 
+            {paymentError && (
+              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {paymentError}
+              </p>
+            )}
+
             {/* Action buttons */}
             <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
+              {!isPaid && !paymentFailed && !isCancelled && (
+                <button
+                  id="continue-payment-btn"
+                  onClick={continuePayment}
+                  disabled={resumingPayment}
+                  className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-60"
+                >
+                  {resumingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {resumingPayment ? 'Opening payment...' : 'Continue with payment'}
+                </button>
+              )}
               <button
                 id="view-my-orders-btn"
-                onClick={() => navigate(isPaid ? '/orders' : '/cart')}
+                onClick={() => navigate('/orders')}
                 className="flex-1 py-3 px-4 bg-black text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
               >
-                {isPaid ? <Package className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
-                {isPaid ? 'View My Orders' : 'Return to Cart'}
+                <Package className="h-4 w-4" />
+                View My Orders
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button

@@ -74,6 +74,16 @@ export const createPaymentOrder = async (shippingAddress) => {
   return response.data;
 };
 
+export const resumePayment = async (orderId) => {
+  const response = await api.post(`/orders/${orderId}/resume-payment`);
+  return response.data;
+};
+
+export const cancelPendingOrder = async (orderId) => {
+  const response = await api.patch(`/orders/${orderId}/cancel`);
+  return response.data;
+};
+
 export const verifyPayment = async (paymentData) => {
   const response = await api.post('/orders/verify-payment', paymentData);
   return response.data;

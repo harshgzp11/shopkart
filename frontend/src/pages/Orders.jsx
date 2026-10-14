@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { getCurrentUser, getOrders, updateOrderStatus } from '../services/api';
+import { cancelPendingOrder, getCurrentUser, getOrders, updateOrderStatus } from '../services/api';
 import {
   Package,
   MapPin,
@@ -28,6 +28,8 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  const [cancelingId, setCancelingId] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -101,8 +103,45 @@ export default function Orders() {
     }
   };
 
+  const handleCancelOrder = async (orderId) => {
+    const confirmed = window.confirm(
+      'Cancel this order? The order will remain in your history. If a payment is already processing, cancellation may be rejected.'
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setCancelingId(orderId);
+    setActionFeedback(null);
+    try {
+      const response = await cancelPendingOrder(orderId);
+      if (!response.success) {
+        throw new Error(response.message || 'Unable to cancel this order.');
+      }
+
+      setOrders((currentOrders) =>
+        currentOrders.map((order) =>
+          order._id === orderId ? response.order : order
+        )
+      );
+      setActionFeedback({ type: 'success', message: response.message || 'Order cancelled.' });
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.message || err.message || 'Unable to cancel this order.'
+      });
+    } finally {
+      setCancelingId(null);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'CANCELLED':
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'PENDING_PAYMENT':
+        return 'bg-red-100 text-red-800 border-red-200';
       case 'DELIVERED':
         return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'SHIPPED':
@@ -142,6 +181,19 @@ export default function Orders() {
             Refresh
           </button>
         </div>
+
+        {actionFeedback && (
+          <p
+            role={actionFeedback.type === 'error' ? 'alert' : 'status'}
+            className={`mb-5 rounded-xl border px-4 py-3 text-sm ${
+              actionFeedback.type === 'error'
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            }`}
+          >
+            {actionFeedback.message}
+          </p>
+        )}
 
         {/* Loading State */}
         {loading ? (
@@ -198,7 +250,7 @@ export default function Orders() {
 
               const nextStatusIndex = STATUS_PROGRESSION.indexOf(order.status) + 1;
               const nextStatus =
-                nextStatusIndex < STATUS_PROGRESSION.length
+                order.paymentStatus === 'PAID' && nextStatusIndex < STATUS_PROGRESSION.length
                   ? STATUS_PROGRESSION[nextStatusIndex]
                   : null;
 
@@ -239,6 +291,15 @@ export default function Orders() {
                         View Details
                         <ChevronRight className="h-3.5 w-3.5" />
                       </button>
+                      {order.status === 'PENDING_PAYMENT' && order.paymentStatus === 'PENDING' && (
+                        <button
+                          onClick={() => handleCancelOrder(order._id)}
+                          disabled={cancelingId === order._id}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-red-700 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-60"
+                        >
+                          {cancelingId === order._id ? 'Cancelling...' : 'Cancel order'}
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -296,6 +357,9 @@ export default function Orders() {
                         <Sparkles className="h-3 w-3 text-amber-500" />
                         {updatingId === order._id ? 'Updating...' : `Advance to ${nextStatus}`}
                       </button>
+                    )}
+                    {order.status === 'CANCELLED' && (
+                      <span className="font-semibold text-gray-600">This order was cancelled.</span>
                     )}
                   </div>
                 </div>

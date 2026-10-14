@@ -40,6 +40,7 @@ test('creates a Razorpay client when both credentials are set', () => {
 
     assert.equal(config.keyId, 'rzp_test_unit');
     assert.equal(typeof config.client.orders.create, 'function');
+    assert.equal(typeof config.client.orders.fetchPayments, 'function');
   } finally {
     if (previousKeyId === undefined) {
       delete process.env.RAZORPAY_KEY_ID;

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const {
   createPaymentOrder,
+  resumePayment,
+  cancelPendingOrder,
   verifyPayment,
   getMyOrders,
   getAllOrders,
@@ -17,6 +19,8 @@ router.use(protectRoute);
 // POST /orders and POST /orders/create-payment-order
 router.post('/', createPaymentOrder);
 router.post('/create-payment-order', createPaymentOrder);
+router.post('/:id/resume-payment', resumePayment);
+router.patch('/:id/cancel', cancelPendingOrder);
 
 // POST /orders/verify-payment
 router.post('/verify-payment', verifyPayment);

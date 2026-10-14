@@ -1,124 +1,92 @@
 # ShopKart
 
-ShopKart is a full-stack e-commerce application built with React, Vite, Express, and MongoDB.
+ShopKart is a full-stack online store built with React, Express, and MongoDB.
 
 ## Features
 
-- Customer registration, login, and logout using JWT cookies
-- Product catalogue with search, category filtering, and price sorting
-- Persistent, per-customer cart and wishlist
-- Shipping address collection and Razorpay checkout/payment verification
-- Customer order history and order status tracking
-- Admin dashboard for product creation and order fulfillment
-
-The application does not currently include product editing/deletion, product reviews, or shipping-label/receipt generation.
+- Customer registration and login
+- Product catalogue, cart, and wishlist
+- Razorpay checkout and order history
+- Admin tools for products and order fulfillment
 
 ## Technology
 
-- Frontend: React 19, React Router, Vite, Tailwind CSS, Axios
-- Backend: Node.js, Express 5, Mongoose, MongoDB
-- Authentication: JWT in HTTP-only cookies, bcrypt password hashing
+- Frontend: React, Vite, Tailwind CSS
+- Backend: Node.js, Express, Mongoose
+- Database: MongoDB
+- Authentication: bcrypt and JWT in an HttpOnly cookie
 - Payments: Razorpay
 
-## Requirements
+## Run locally
 
-- Node.js 20.19+ or 22.12+
-- npm
-- A MongoDB instance (local or MongoDB Atlas)
-- Razorpay test or live API credentials to complete checkout
+You need Node.js, npm, and a MongoDB database. Razorpay test credentials are needed to test payments.
 
-## Local setup
-
-### 1. Clone and install dependencies
+### 1. Clone and install
 
 ```sh
 git clone https://github.com/harshgzp11/shopkart.git
 cd shopkart
-```
-
-In one terminal:
-
-```sh
 cd backend
 npm install
-```
-
-In a second terminal:
-
-```sh
-cd frontend
+cd ../frontend
 npm install
 ```
 
 ### 2. Configure the backend
 
-Copy `backend/.env.example` to `backend/.env`, then set `MONGO_URI` and replace `JWT_SECRET` with a private, randomly generated value of at least 32 characters. In PowerShell, copy the example from the repository root with:
+Copy `backend/.env.example` to `backend/.env`. From the project root, in PowerShell:
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
 ```
 
-Generate a secret from the `backend` directory:
+Set `MONGO_URI` to your MongoDB connection string and `JWT_SECRET` to a private random value of at least 32 characters. Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to enable payments. Use test keys for development.
+
+### 3. Start the app
+
+Open two terminals from the project folder. In the first, start the backend:
 
 ```sh
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to enable checkout. Use Razorpay test credentials for local development. Do not commit `.env` files or real credentials.
-
-Start the API from the `backend` directory:
-
-```sh
+cd backend
 npm run dev
 ```
 
-The API listens on `http://localhost:5000` by default. It will not start if required MongoDB configuration is missing or MongoDB cannot be reached.
-
-### 3. Configure and start the frontend
-
-Copy `frontend/.env.example` to `frontend/.env` if the API is not at the default URL. In PowerShell, use `Copy-Item frontend/.env.example frontend/.env` from the repository root, then set `VITE_API_URL` to the API origin. Start the frontend from the `frontend` directory:
+In the second, start the frontend:
 
 ```sh
+cd frontend
 npm run dev
 ```
 
-Vite prints the frontend URL (normally `http://localhost:5173`).
+Open the URL printed by Vite, usually `http://localhost:5173`. The frontend sends API requests through its local `/api` proxy to the backend on port `5000`.
 
-### 4. Set up an administrator
+## Deploy to Vercel
 
-New accounts have the `CUSTOMER` role and cannot create products or change order statuses. After registering an account, promote it using a trusted MongoDB shell or database client:
+1. Import the GitHub repository. Keep the root directory as `./` and choose **Services**.
+2. Add `MONGO_URI`, `JWT_SECRET`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` in the Vercel project environment variables.
+3. Deploy. Leave `VITE_API_URL` unset.
 
-```javascript
+## Admin account
+
+New accounts have the `CUSTOMER` role. To grant admin access, update the account in MongoDB:
+
+```js
 db.customers.updateOne(
   { email: "admin@example.com" },
   { $set: { role: "ADMIN" } }
 )
 ```
 
-Administrators can open `/admin` to add products and advance paid orders through fulfillment. Never expose an endpoint that lets users set their own role.
+## Run checks
 
-## Useful commands
+Run each command from its project folder:
 
-Run these from their respective directories:
-
-| Directory | Command | Purpose |
+| Folder | Command | Purpose |
 |---|---|---|
-| `backend` | `npm start` | Start the API |
-| `backend` | `npm run dev` | Start the API with Node watch mode |
 | `backend` | `npm test` | Run backend tests |
-| `frontend` | `npm run dev` | Start the Vite development server |
-| `frontend` | `npm run build` | Build the frontend for production |
-| `frontend` | `npm run lint` | Lint the frontend |
+| `frontend` | `npm run lint` | Check frontend code |
+| `frontend` | `npm run build` | Build the frontend |
 
-## Environment files and secrets
+## Keep secrets private
 
-The committed `.env.example` files contain placeholders only. Local `.env` files are ignored by Git. Keep database passwords, JWT secrets, and payment credentials private, and rotate any credential that has ever been committed or shared.
-
-## Repository
-
-[github.com/harshgzp11/shopkart](https://github.com/harshgzp11/shopkart)
-
-
-Project by -
-Harsh Srivastava
-Class of 2029 A
+Use local `.env` files for development and Vercel environment variables for deployment. Never commit `.env` files, database credentials, JWT secrets, or Razorpay secrets to GitHub.

@@ -1,27 +1,57 @@
 # ShopKart
 
-ShopKart is a full-stack online store built with React, Express, and MongoDB.
+ShopKart is a full-stack e-commerce application where customers can discover products, save items, place orders, and pay online. It also includes an admin area for managing the product catalogue and preparing paid orders for fulfillment.
 
 ## Features
 
-- Customer registration and login
-- Product catalogue, cart, and wishlist
-- Razorpay checkout and order history
-- Admin tools for products and order fulfillment
+### Customer accounts
+
+- Register and log in with an email and password.
+- Passwords are stored as bcrypt hashes.
+- Authentication uses a JWT stored in an HttpOnly cookie.
+- View your profile and log out securely.
+
+### Product browsing
+
+- Browse the product catalogue and open individual product details.
+- Search products, filter by category, and sort by price.
+- View product images, prices, descriptions, and stock availability.
+
+### Cart and wishlist
+
+- Add products to your cart and change quantities before checkout.
+- Cart contents are saved to your customer account.
+- Save products to a wishlist and remove them when no longer needed.
+
+### Checkout and orders
+
+- Provide a delivery address and start checkout with Razorpay.
+- The backend checks product availability and calculates the order total.
+- Payment confirmation is verified by the backend before an order is marked as paid.
+- View order items, delivery details, payment status, and order status.
+- Resume payment for eligible pending orders or cancel them while payment is still pending.
+
+### Administration
+
+- Admin accounts can add products through the admin dashboard.
+- Admins can advance paid orders through fulfillment statuses.
+- Regular customer accounts cannot access admin actions.
 
 ## Technology
 
-- Frontend: React, Vite, Tailwind CSS
-- Backend: Node.js, Express, Mongoose
-- Database: MongoDB
-- Authentication: bcrypt and JWT in an HttpOnly cookie
-- Payments: Razorpay
+| Area | Technologies |
+|---|---|
+| Frontend | React, React Router, Vite, Tailwind CSS, Axios |
+| Backend | Node.js, Express, Mongoose |
+| Database | MongoDB |
+| Authentication | bcrypt, JSON Web Tokens, HttpOnly cookies |
+| Payments | Razorpay |
 
 ## Run locally
 
-You need Node.js, npm, and a MongoDB database. Razorpay test credentials are needed to test payments.
+Install Node.js and npm, and make a MongoDB database available. Razorpay test credentials are needed to complete test checkout.
 
-### 1. Clone and install
+### Install dependencies
 
 ```sh
 git clone https://github.com/harshgzp11/shopkart.git
@@ -32,43 +62,39 @@ cd ../frontend
 npm install
 ```
 
-### 2. Configure the backend
+### Configure the backend
 
-Copy `backend/.env.example` to `backend/.env`. From the project root, in PowerShell:
+From the repository root, copy the example configuration:
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
 ```
 
-Set `MONGO_URI` to your MongoDB connection string and `JWT_SECRET` to a private random value of at least 32 characters. Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to enable payments. Use test keys for development.
+Set `MONGO_URI` to your MongoDB connection string and `JWT_SECRET` to a random private value of at least 32 characters. Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to enable Razorpay checkout. Keep these values private.
 
-### 3. Start the app
+### Start the app
 
-Open two terminals from the project folder. In the first, start the backend:
+Open two terminals from the repository root.
+
+Terminal 1:
 
 ```sh
 cd backend
 npm run dev
 ```
 
-In the second, start the frontend:
+Terminal 2:
 
 ```sh
 cd frontend
 npm run dev
 ```
 
-Open the URL printed by Vite, usually `http://localhost:5173`. The frontend sends API requests through its local `/api` proxy to the backend on port `5000`.
+Open the URL shown by Vite, usually `http://localhost:5173`. Locally, the frontend proxies `/api` requests to the backend on port `5000`.
 
-## Deploy to Vercel
+## Admin accounts
 
-1. Import the GitHub repository. Keep the root directory as `./` and choose **Services**.
-2. Add `MONGO_URI`, `JWT_SECRET`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` in the Vercel project environment variables.
-3. Deploy. Leave `VITE_API_URL` unset.
-
-## Admin account
-
-New accounts have the `CUSTOMER` role. To grant admin access, update the account in MongoDB:
+New accounts are regular customers. To grant an account admin access, update its role in MongoDB:
 
 ```js
 db.customers.updateOne(
@@ -77,16 +103,15 @@ db.customers.updateOne(
 )
 ```
 
-## Run checks
+## Vercel deployment
 
-Run each command from its project folder:
+The repository is configured as a Vercel **Services** project with a frontend and backend.
 
-| Folder | Command | Purpose |
-|---|---|---|
-| `backend` | `npm test` | Run backend tests |
-| `frontend` | `npm run lint` | Check frontend code |
-| `frontend` | `npm run build` | Build the frontend |
+1. Import the repository with root directory `./` and preset **Services**.
+2. Add `MONGO_URI`, `JWT_SECRET`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` as environment variables.
+3. Deploy. Leave `VITE_API_URL` unset.
 
-## Keep secrets private
 
-Use local `.env` files for development and Vercel environment variables for deployment. Never commit `.env` files, database credentials, JWT secrets, or Razorpay secrets to GitHub.
+## Authored by
+Harsh Srivastava
+Class of 2029 A

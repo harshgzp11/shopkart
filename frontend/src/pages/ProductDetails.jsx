@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getProductById } from '../services/api';
-import { ArrowLeft, ShoppingBag, Check } from 'lucide-react';
-import { useCart } from '../context/CartContext';
+import { ArrowLeft, ShoppingBag } from 'lucide-react';
 
 export default function ProductDetails() {
   const { id } = useParams();

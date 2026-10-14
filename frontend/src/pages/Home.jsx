@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
-import { User, Mail, Phone, Calendar } from 'lucide-react';
+import { User, Mail, Phone } from 'lucide-react';
 
 export default function Home() {
   const [customer, setCustomer] = useState(null);
@@ -14,7 +14,7 @@ export default function Home() {
       try {
         const response = await api.get('/customers/me');
         setCustomer(response.data.customer || response.data);
-      } catch (err) {
+      } catch {
         navigate('/login');
       } finally {
         setLoading(false);

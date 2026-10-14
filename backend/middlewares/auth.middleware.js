@@ -3,7 +3,6 @@ const Customer = require('../models/customer.model');
 
 const protectRoute = async (req, res, next) => {
   try {
-
     const token = req.cookies.jwt;
 
     if (!token) {
@@ -16,7 +15,7 @@ const protectRoute = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!decoded) {
+    if (!decoded || typeof decoded === 'string' || !decoded.id) {
       return res.status(401).json({
         success: false,
         message: 'Unauthorized - Invalid Token'
@@ -35,15 +34,17 @@ const protectRoute = async (req, res, next) => {
 
 
     req.user = customer;
-    
-
     next();
   } catch (error) {
-    console.log('Error in protectRoute middleware:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized - Invalid or expired token'
+      });
+    }
+
+    console.error('Error in protectRoute middleware:', error.message);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 

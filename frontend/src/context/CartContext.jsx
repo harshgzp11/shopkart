@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getCart, addToCart as apiAddToCart, updateCartQuantity as apiUpdateQty, removeFromCart as apiRemoveFromCart } from '../services/api';
-
-const CartContext = createContext(null);
+import { CartContext } from './cart-context';
 
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
@@ -18,11 +17,10 @@ export function CartProvider({ children }) {
   // Fetch cart from backend — called on mount and after mutations
   const fetchCart = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
       const data = await getCart();
       if (data.success) {
         setCartItems(data.cart);
+        setError(null);
       }
     } catch (err) {
       console.error('Failed to load cart:', err);
@@ -32,9 +30,38 @@ export function CartProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => {
-    fetchCart();
+  const refreshCart = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    return fetchCart();
   }, [fetchCart]);
+
+  useEffect(() => {
+    let active = true;
+
+    getCart()
+      .then((data) => {
+        if (active && data.success) {
+          setCartItems(data.cart);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          console.error('Failed to load cart:', err);
+          setError('Unable to load your cart.');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Add to cart — if already present, backend increments quantity
   const addToCart = async (productId) => {
@@ -76,7 +103,7 @@ export function CartProvider({ children }) {
         error,
         totalItems,
         subtotal,
-        fetchCart,
+        fetchCart: refreshCart,
         addToCart,
         updateQuantity,
         removeFromCart,
@@ -86,13 +113,4 @@ export function CartProvider({ children }) {
       {children}
     </CartContext.Provider>
   );
-}
-
-// Custom hook for consuming the context
-export function useCart() {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
-  return context;
 }

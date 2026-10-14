@@ -10,6 +10,7 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
 import Orders from './pages/Orders';
+import Admin from './pages/Admin';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order-success/:id" element={<OrderSuccess />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="/orders/:id" element={<OrderSuccess />} />
         </Routes>
       </CartProvider>

@@ -8,9 +8,7 @@ import {
   ArrowRight,
   ShoppingBag,
   MapPin,
-  Calendar,
-  CreditCard,
-  Truck
+  CreditCard
 } from 'lucide-react';
 
 export default function OrderSuccess() {

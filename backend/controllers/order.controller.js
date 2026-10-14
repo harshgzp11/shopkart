@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const Customer = require('../models/customer.model');
 const Product = require('../models/product.model');
 const Order = require('../models/order.model');
-const razorpay = require('../config/razorpay');
+const getRazorpayConfig = require('../config/razorpay');
 
 // Helper to validate shipping address
 const validateShippingAddress = (address) => {
@@ -53,6 +53,19 @@ const validateShippingAddress = (address) => {
 const createPaymentOrder = async (req, res) => {
   try {
     const { shippingAddress } = req.body;
+
+    let razorpayConfig;
+    try {
+      razorpayConfig = getRazorpayConfig();
+    } catch (error) {
+      if (error.code === 'RAZORPAY_NOT_CONFIGURED') {
+        return res.status(503).json({
+          success: false,
+          message: 'Payment gateway is not configured. Set Razorpay credentials on the server.'
+        });
+      }
+      throw error;
+    }
 
     // Validate shipping address
     const addressError = validateShippingAddress(shippingAddress);
@@ -132,7 +145,7 @@ const createPaymentOrder = async (req, res) => {
     const amountInPaise = Math.round(calculatedTotal * 100);
 
     try {
-      const razorpayOrder = await razorpay.orders.create({
+      const razorpayOrder = await razorpayConfig.client.orders.create({
         amount: amountInPaise,
         currency: 'INR',
         receipt: shopKartOrder._id.toString()
@@ -155,7 +168,7 @@ const createPaymentOrder = async (req, res) => {
       razorpayOrderId: shopKartOrder.razorpayOrderId,
       amount: amountInPaise,
       currency: 'INR',
-      key: process.env.RAZORPAY_KEY_ID || ''
+      key: razorpayConfig.keyId
     });
   } catch (error) {
     console.error('Error in createPaymentOrder:', error);
@@ -178,7 +191,7 @@ const verifyPayment = async (req, res) => {
   try {
     const { shopKartOrderId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-    if (!shopKartOrderId || !razorpay_payment_id || !razorpay_signature) {
+    if (!shopKartOrderId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({
         success: false,
         message: 'Missing required payment verification fields'
@@ -199,16 +212,38 @@ const verifyPayment = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Forbidden: Access to another user order is denied' });
     }
 
-    // Signature verification using order's trusted razorpayOrderId
-    const trustedOrderId = order.razorpayOrderId || razorpay_order_id;
-    const body = trustedOrderId + '|' + razorpay_payment_id;
+    if (
+      order.paymentStatus !== 'PENDING' ||
+      order.status !== 'PENDING_PAYMENT' ||
+      !order.razorpayOrderId ||
+      razorpay_order_id !== order.razorpayOrderId
+    ) {
+      return res.status(409).json({ success: false, message: 'Payment order is not pending or does not match' });
+    }
+
+    let razorpayConfig;
+    try {
+      razorpayConfig = getRazorpayConfig();
+    } catch (error) {
+      if (error.code === 'RAZORPAY_NOT_CONFIGURED') {
+        return res.status(503).json({
+          success: false,
+          message: 'Payment gateway is not configured. Set Razorpay credentials on the server.'
+        });
+      }
+      throw error;
+    }
 
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-      .update(body)
-      .digest('hex');
+      .createHmac('sha256', razorpayConfig.keySecret)
+      .update(`${order.razorpayOrderId}|${razorpay_payment_id}`)
+      .digest();
+    const receivedSignature = Buffer.from(razorpay_signature, 'hex');
 
-    if (expectedSignature !== razorpay_signature) {
+    if (
+      receivedSignature.length !== expectedSignature.length ||
+      !crypto.timingSafeEqual(expectedSignature, receivedSignature)
+    ) {
       order.paymentStatus = 'FAILED';
       await order.save();
 
@@ -268,6 +303,20 @@ const getMyOrders = async (req, res) => {
   }
 };
 
+const getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate('user', 'fullName email')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    return res.status(200).json({ success: true, orders });
+  } catch (error) {
+    console.error('Error in getAllOrders:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 /**
  * GET /orders/:id
  * Return single order by ID with ownership check
@@ -312,7 +361,12 @@ const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowedStatuses = ['PLACED', 'CONFIRMED', 'SHIPPED', 'DELIVERED'];
+    const statusTransitions = {
+      PLACED: 'CONFIRMED',
+      CONFIRMED: 'SHIPPED',
+      SHIPPED: 'DELIVERED'
+    };
+    const allowedStatuses = Object.values(statusTransitions);
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -327,6 +381,13 @@ const updateOrderStatus = async (req, res) => {
     const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.paymentStatus !== 'PAID' || statusTransitions[order.status] !== status) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status transition from ${order.status} to ${status}`
+      });
     }
 
     order.status = status;
@@ -347,6 +408,7 @@ module.exports = {
   createPaymentOrder,
   verifyPayment,
   getMyOrders,
+  getAllOrders,
   getOrderById,
   updateOrderStatus
 };

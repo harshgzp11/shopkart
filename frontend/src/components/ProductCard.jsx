@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Heart, ShoppingCart, Eye } from 'lucide-react';
-import { useCart } from '../context/CartContext';
-import { addToWishlist } from '../services/api';
+import { useCart } from '../context/useCart';
+import { toggleWishlist } from '../services/api';
 
 const ProductCard = ({ product }) => {
   const navigate = useNavigate();
@@ -36,7 +36,6 @@ const ProductCard = ({ product }) => {
   const handleAddToWishlist = async () => {
     setWishlistLoading(true);
     try {
-      const { toggleWishlist } = await import('../services/api');
       const res = await toggleWishlist(product._id);
       if (res.saved) {
         setWishlistStatus('added');

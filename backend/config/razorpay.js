@@ -1,11 +1,20 @@
 const Razorpay = require('razorpay');
 
-const keyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder';
-const keySecret = process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret';
+const getRazorpayConfig = () => {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-const razorpay = new Razorpay({
-  key_id: keyId,
-  key_secret: keySecret
-});
+  if (!keyId || !keySecret) {
+    const error = new Error('Razorpay credentials are not configured');
+    error.code = 'RAZORPAY_NOT_CONFIGURED';
+    throw error;
+  }
 
-module.exports = razorpay;
+  return {
+    keyId,
+    keySecret,
+    client: new Razorpay({ key_id: keyId, key_secret: keySecret })
+  };
+};
+
+module.exports = getRazorpayConfig;

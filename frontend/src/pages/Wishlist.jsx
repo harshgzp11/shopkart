@@ -13,11 +13,10 @@ export default function Wishlist() {
 
   const fetchWishlist = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
       const data = await getWishlist();
       if (data.success) {
         setWishlist(data.wishlist);
+        setError(null);
       }
     } catch (err) {
       console.error(err);
@@ -27,9 +26,38 @@ export default function Wishlist() {
     }
   }, []);
 
-  useEffect(() => {
+  const handleRefresh = () => {
+    setLoading(true);
+    setError(null);
     fetchWishlist();
-  }, [fetchWishlist]);
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    getWishlist()
+      .then((data) => {
+        if (active && data.success) {
+          setWishlist(data.wishlist);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          console.error(err);
+          setError('Unable to load your wishlist.');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleRemove = async (productId) => {
     setRemovingId(productId);
@@ -80,7 +108,7 @@ export default function Wishlist() {
               <p className="text-gray-500 text-sm mt-1">{error}</p>
             </div>
             <button
-              onClick={fetchWishlist}
+              onClick={handleRefresh}
               className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               <RefreshCw className="h-4 w-4" />

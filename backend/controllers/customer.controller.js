@@ -94,7 +94,8 @@ const getMyProfile = async (req, res) => {
       _id: customer._id,
       fullName: customer.fullName,
       email: customer.email,
-      phone: customer.phone
+      phone: customer.phone,
+      role: customer.role
     });
   } catch (error) {
     console.log('Error in getMyProfile:', error.message);

@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import CartItem from '../components/CartItem';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/useCart';
 import { ShoppingBag, ShoppingCart, RefreshCw, ArrowRight, Tag } from 'lucide-react';
 
 export default function Cart() {

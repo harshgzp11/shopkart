@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/useCart';
 
 export default function CartItem({ item }) {
   const { updateQuantity, removeFromCart } = useCart();

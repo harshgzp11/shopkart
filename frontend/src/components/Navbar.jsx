@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api from '../services/api';
+import api, { getCurrentUser } from '../services/api';
 import { LogOut, ShoppingCart, Heart } from 'lucide-react';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/useCart';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { totalItems } = useCart();
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    let active = true;
     const fetchWishlistCount = async () => {
       try {
         const res = await api.get('/wishlist');
         if (res.data.success) {
-          setWishlistCount(res.data.count);
+          if (active) setWishlistCount(res.data.count);
         }
       } catch (err) {
         console.error('Failed to fetch wishlist count:', err);
@@ -23,13 +25,25 @@ export default function Navbar() {
     };
 
     fetchWishlistCount();
+    getCurrentUser()
+      .then((user) => {
+        if (active) setIsAdmin(user.role === 'ADMIN');
+      })
+      .catch((err) => {
+        if (err.response?.status !== 401) {
+          console.error('Failed to load user role:', err);
+        }
+      });
 
     const handleWishlistUpdated = () => {
       fetchWishlistCount();
     };
 
     window.addEventListener('wishlistUpdated', handleWishlistUpdated);
-    return () => window.removeEventListener('wishlistUpdated', handleWishlistUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener('wishlistUpdated', handleWishlistUpdated);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -84,6 +98,11 @@ export default function Navbar() {
               <button onClick={() => navigate('/orders')} className={navLinkClass('/orders')}>
                 My Orders
               </button>
+              {isAdmin && (
+                <button onClick={() => navigate('/admin')} className={navLinkClass('/admin')}>
+                  Admin
+                </button>
+              )}
             </div>
           </div>
 

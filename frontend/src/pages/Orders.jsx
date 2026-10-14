@@ -1,21 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { getOrders, updateOrderStatus } from '../services/api';
+import { getCurrentUser, getOrders, updateOrderStatus } from '../services/api';
 import {
   Package,
-  Calendar,
   MapPin,
   ChevronRight,
   ShoppingBag,
   RefreshCw,
-  Clock,
-  CheckCircle,
-  Truck,
   Sparkles
 } from 'lucide-react';
 
 const STATUS_PROGRESSION = ['PLACED', 'CONFIRMED', 'SHIPPED', 'DELIVERED'];
+
+const loadOrders = async () => {
+  const [ordersResponse, user] = await Promise.all([getOrders(), getCurrentUser()]);
+  if (!ordersResponse.success) {
+    throw new Error(ordersResponse.message || 'Failed to fetch orders');
+  }
+
+  return { orders: ordersResponse.orders || [], isAdmin: user.role === 'ADMIN' };
+};
 
 export default function Orders() {
   const navigate = useNavigate();
@@ -23,28 +28,55 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    loadOrders()
+      .then((data) => {
+        if (active) {
+          setOrders(data.orders);
+          setIsAdmin(data.isAdmin);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          console.error('Error fetching orders:', err);
+          setError(err.response?.data?.message || err.message || 'Unable to load orders');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
+      const data = await loadOrders();
+      setOrders(data.orders);
+      setIsAdmin(data.isAdmin);
       setError(null);
-      const res = await getOrders();
-      if (res.success) {
-        setOrders(res.orders || []);
-      } else {
-        setError(res.message || 'Failed to fetch orders');
-      }
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError(err.response?.data?.message || 'Unable to load orders');
+      setError(err.response?.data?.message || err.message || 'Unable to load orders');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
+  const handleRefresh = () => {
+    setLoading(true);
+    setError(null);
     fetchOrders();
-  }, []);
+  };
 
   // Bonus progression simulation
   const handleProgressStatus = async (orderId, currentStatus) => {
@@ -103,7 +135,7 @@ export default function Orders() {
           </div>
 
           <button
-            onClick={fetchOrders}
+            onClick={handleRefresh}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -126,7 +158,7 @@ export default function Orders() {
               <p className="text-gray-500 text-sm mt-1">{error}</p>
             </div>
             <button
-              onClick={fetchOrders}
+              onClick={handleRefresh}
               className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors"
             >
               <RefreshCw className="h-4 w-4" />
@@ -164,7 +196,6 @@ export default function Orders() {
                 year: 'numeric'
               });
 
-              const isDelivered = order.status === 'DELIVERED';
               const nextStatusIndex = STATUS_PROGRESSION.indexOf(order.status) + 1;
               const nextStatus =
                 nextStatusIndex < STATUS_PROGRESSION.length
@@ -255,7 +286,7 @@ export default function Orders() {
                     </div>
 
                     {/* Bonus Feature: Interactive status progression */}
-                    {nextStatus && (
+                    {isAdmin && nextStatus && (
                       <button
                         onClick={() => handleProgressStatus(order._id, order.status)}
                         disabled={updatingId === order._id}

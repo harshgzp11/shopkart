@@ -1,0 +1,33 @@
+# Dependencies and generated output
+node_modules/
+dist/
+dist-ssr/
+coverage/
+build/
+
+# Local environment and secret files
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.local
+*.tsbuildinfo
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

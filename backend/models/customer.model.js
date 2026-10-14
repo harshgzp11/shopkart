@@ -18,6 +18,11 @@ const customerSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    role: {
+      type: String,
+      enum: ['CUSTOMER', 'ADMIN'],
+      default: 'CUSTOMER'
+    },
     phone: {
       type: String,
       required: true

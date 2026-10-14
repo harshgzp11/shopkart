@@ -1,13 +1,23 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
   withCredentials: true,
 });
+
+export const getCurrentUser = async () => {
+  const response = await api.get('/customers/me');
+  return response.data;
+};
 
 // ── Products ────────────────────────────────────────────────
 export const getProducts = async (params) => {
   const response = await api.get('/products', { params });
+  return response.data;
+};
+
+export const createProduct = async (product) => {
+  const response = await api.post('/products', product);
   return response.data;
 };
 
@@ -74,6 +84,11 @@ export const getOrders = async () => {
   return response.data;
 };
 
+export const getAllOrders = async () => {
+  const response = await api.get('/orders/admin/all');
+  return response.data;
+};
+
 export const getOrderById = async (orderId) => {
   const response = await api.get(`/orders/${orderId}`);
   return response.data;
@@ -85,4 +100,3 @@ export const updateOrderStatus = async (orderId, status) => {
 };
 
 export default api;
-

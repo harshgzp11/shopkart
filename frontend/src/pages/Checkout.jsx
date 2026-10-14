@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/useCart';
 import { createPaymentOrder, verifyPayment } from '../services/api';
 import {
   CreditCard,

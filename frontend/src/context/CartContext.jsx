@@ -48,8 +48,13 @@ export function CartProvider({ children }) {
       })
       .catch((err) => {
         if (active) {
-          console.error('Failed to load cart:', err);
-          setError('Unable to load your cart.');
+          if (err.response?.status === 401) {
+            setCartItems([]);
+            setError(null);
+          } else {
+            console.error('Failed to load cart:', err);
+            setError('Unable to load your cart.');
+          }
         }
       })
       .finally(() => {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getOrderById } from '../services/api';
 import {
+  AlertCircle,
   CheckCircle,
   Package,
   ArrowRight,
@@ -17,32 +18,37 @@ export default function OrderSuccess() {
   const location = useLocation();
 
   const [order, setOrder] = useState(location.state?.order || null);
-  const [loading, setLoading] = useState(!location.state?.order);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // If order wasn't passed in navigation state, fetch from API
-    if (!order && id) {
-      const fetchOrder = async () => {
-        try {
-          setLoading(true);
-          const res = await getOrderById(id);
-          if (res.success) {
-            setOrder(res.order);
-          } else {
-            setError(res.message || 'Order not found');
-          }
-        } catch (err) {
+    let active = true;
+
+    getOrderById(id)
+      .then((res) => {
+        if (active && res.success) {
+          setOrder(res.order);
+        } else if (active) {
+          setError(res.message || 'Order not found');
+        }
+      })
+      .catch((err) => {
+        if (active) {
           console.error('Error fetching order details:', err);
           setError(err.response?.data?.message || 'Unable to retrieve order details.');
-        } finally {
+          setOrder(null);
+        }
+      })
+      .finally(() => {
+        if (active) {
           setLoading(false);
         }
-      };
+      });
 
-      fetchOrder();
-    }
-  }, [id, order]);
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   if (loading) {
     return (
@@ -83,6 +89,18 @@ export default function OrderSuccess() {
     hour: '2-digit',
     minute: '2-digit'
   });
+  const isPaid = order.paymentStatus === 'PAID';
+  const paymentFailed = order.paymentStatus === 'FAILED';
+  const bannerTitle = isPaid
+    ? 'Order Placed Successfully!'
+    : paymentFailed
+      ? 'Payment Failed'
+      : 'Payment Pending';
+  const bannerMessage = isPaid
+    ? 'Thank you for shopping with ShopKart. Your order is confirmed.'
+    : paymentFailed
+      ? 'Your payment was not completed, so this order was not placed. Your cart is still available.'
+      : 'Payment has not been confirmed. This order is not placed until payment succeeds.';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -91,15 +109,19 @@ export default function OrderSuccess() {
       <main className="flex-grow max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           {/* Header Banner */}
-          <div className="bg-emerald-500 px-6 py-8 text-center text-white">
+          <div className={`${isPaid ? 'bg-emerald-500' : paymentFailed ? 'bg-red-600' : 'bg-amber-500'} px-6 py-8 text-center text-white`}>
             <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-10 h-10 text-white" />
+              {isPaid ? (
+                <CheckCircle className="w-10 h-10 text-white" />
+              ) : (
+                <AlertCircle className="w-10 h-10 text-white" />
+              )}
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Order Placed Successfully!
+              {bannerTitle}
             </h1>
-            <p className="text-emerald-100 text-sm mt-1">
-              Thank you for shopping with ShopKart. Your order has been placed and confirmed.
+            <p className="text-white/90 text-sm mt-1">
+              {bannerMessage}
             </p>
           </div>
 
@@ -119,13 +141,23 @@ export default function OrderSuccess() {
               </div>
               <div>
                 <p className="text-gray-400 text-xs uppercase font-medium">Status</p>
-                <span className="inline-block mt-0.5 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full">
+                <span className={`inline-block mt-0.5 px-2 py-0.5 text-xs font-bold rounded-full ${
+                  order.status === 'PENDING_PAYMENT'
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}>
                   {order.status}
                 </span>
               </div>
               <div>
                 <p className="text-gray-400 text-xs uppercase font-medium">Payment</p>
-                <span className="inline-block mt-0.5 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
+                <span className={`inline-block mt-0.5 px-2 py-0.5 text-xs font-bold rounded-full ${
+                  order.paymentStatus === 'PAID'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : order.paymentStatus === 'FAILED'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-amber-100 text-amber-800'
+                }`}>
                   {order.paymentStatus}
                 </span>
               </div>
@@ -184,7 +216,9 @@ export default function OrderSuccess() {
                     <CreditCard className="h-3.5 w-3.5" />
                     Payment Details
                   </h3>
-                  <p className="text-xs text-gray-600">Method: Razorpay Test Mode</p>
+                  <p className="text-xs text-gray-600">
+                    Method: Razorpay{isPaid ? '' : ' checkout'}
+                  </p>
                   {order.razorpayPaymentId && (
                     <p className="text-xs text-gray-500 mt-0.5 truncate">
                       Payment ID: {order.razorpayPaymentId}
@@ -192,7 +226,7 @@ export default function OrderSuccess() {
                   )}
                 </div>
                 <div className="pt-3 border-t border-gray-100 mt-2 flex justify-between items-baseline">
-                  <span className="text-xs text-gray-500">Total Paid</span>
+                  <span className="text-xs text-gray-500">{isPaid ? 'Total Paid' : 'Amount Due'}</span>
                   <span className="text-lg font-bold text-gray-900">
                     ₹{order.totalAmount.toLocaleString('en-IN')}
                   </span>
@@ -204,11 +238,11 @@ export default function OrderSuccess() {
             <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
               <button
                 id="view-my-orders-btn"
-                onClick={() => navigate('/orders')}
+                onClick={() => navigate(isPaid ? '/orders' : '/cart')}
                 className="flex-1 py-3 px-4 bg-black text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
               >
-                <Package className="h-4 w-4" />
-                View My Orders
+                {isPaid ? <Package className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+                {isPaid ? 'View My Orders' : 'Return to Cart'}
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button

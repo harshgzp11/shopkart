@@ -117,3 +117,8 @@ The committed `.env.example` files contain placeholders only. Local `.env` files
 ## Repository
 
 [github.com/harshgzp11/shopkart](https://github.com/harshgzp11/shopkart)
+
+
+Project by -
+Harsh Srivastava
+Class of 2029 A

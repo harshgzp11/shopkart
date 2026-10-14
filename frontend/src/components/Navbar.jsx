@@ -20,7 +20,9 @@ export default function Navbar() {
           if (active) setWishlistCount(res.data.count);
         }
       } catch (err) {
-        console.error('Failed to fetch wishlist count:', err);
+        if (err.response?.status !== 401) {
+          console.error('Failed to fetch wishlist count:', err);
+        }
       }
     };
 
